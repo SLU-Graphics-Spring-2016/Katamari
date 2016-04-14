@@ -47,9 +47,9 @@ if ( havePointerLock ) {
     };
 
     // Hook pointer lock state change events
-    document.addEventListener( 'pointerlockchange', pointerlockchange, false );
-    document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
-    document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
+    // document.addEventListener( 'pointerlockchange', pointerlockchange, false );
+    // document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
+    // document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
 
     document.addEventListener( 'pointerlockerror', pointerlockerror, false );
     document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
@@ -58,6 +58,7 @@ if ( havePointerLock ) {
     document.addEventListener( 'click', function ( event ) {
 
         // instructions.style.display = 'none';
+		controlsEnabled = true;
 
         // Ask the browser to lock the pointer
         element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
@@ -71,7 +72,8 @@ if ( havePointerLock ) {
                     document.removeEventListener( 'fullscreenchange', fullscreenchange );
                     document.removeEventListener( 'mozfullscreenchange', fullscreenchange );
 
-                    element.requestPointerLock();
+                    // element.requestPointerLock();
+					
                 }
 
             };
@@ -107,6 +109,7 @@ var moveBackward = false;
 var moveLeft = false;
 var moveRight = false;
 var canJump = false;
+var player;
 
 var prevTime = performance.now();
 var velocity = new THREE.Vector3();
@@ -121,7 +124,11 @@ function init() {
         // Add player object
     var playerGeo = new THREE.SphereGeometry(10,32,32);
     var playerMesh = new THREE.MeshPhongMaterial({ color: 0x990011, specular: 0x2222cc });
-    var player = new THREE.Mesh(playerGeo, playerMesh);
+    player = new THREE.Mesh(playerGeo, playerMesh);
+	
+	player.add(camera);
+	camera.position.z = 30;
+	
     scene.add(player);
     
     var light = new THREE.HemisphereLight( 0xeeeeff, 0x777788, 0.75 );
@@ -143,7 +150,8 @@ function init() {
 
             case 37: // left
             case 65: // a
-                moveLeft = true; break;
+                moveLeft = true; 
+				break;
 
             case 40: // down
             case 83: // s
@@ -297,11 +305,15 @@ function animate() {
 
         velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
 
-        if ( moveForward ) velocity.z -= 400.0 * delta;
-        if ( moveBackward ) velocity.z += 400.0 * delta;
+        // if ( moveForward ) velocity.z -= 400.0 * delta;
+        // if ( moveBackward ) velocity.z += 400.0 * delta;
+		if ( moveForward ) player.translateZ(40 * -delta);
+		if ( moveBackward ) player.translateZ(40 * delta);
 
-        if ( moveLeft ) velocity.x -= 400.0 * delta;
-        if ( moveRight ) velocity.x += 400.0 * delta;
+        // if ( moveLeft ) velocity.x -= 400.0 * delta;
+        // if ( moveRight ) velocity.x += 400.0 * delta;
+		if ( moveLeft ) player.rotateY(.05);
+		if ( moveRight ) player.rotateY(-.05);
 
         if ( isOnObject === true ) {
             velocity.y = Math.max( 0, velocity.y );
