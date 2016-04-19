@@ -15,9 +15,9 @@ var moveLeft = false;
 var moveRight = false;
 var canJump = false;
 var player;
-var curCamZoom = 30;
-var DEFAULT_FORWARD_SPEED = 40;
-var DEFAULT_BACKWARD_SPEED = 40;
+var curCamZoom = 50;
+var DEFAULT_FORWARD_SPEED = 60;
+var DEFAULT_BACKWARD_SPEED = 60;
 
 var prevTime = performance.now();
 var velocity = new THREE.Vector3();
@@ -127,7 +127,10 @@ function init() {
 
         // Add player object
     var playerGeo = new THREE.SphereGeometry(10,32,32);
-    var playerMesh = new THREE.MeshPhongMaterial({ color: 0x990011, specular: 0x2222cc });
+    //added sample texture to try to work on simulating the ball actually rolling
+    var normap = new THREE.TextureLoader().load("BlackMarble.png");
+
+    var playerMesh = new THREE.MeshPhongMaterial({ normalMap: normap, color: 0xff0033 });
     player = new THREE.Mesh(playerGeo, playerMesh);
 	
 	//Attach the camera to lock behind the ball
@@ -135,6 +138,7 @@ function init() {
 	//Current zoom of the camera behind the ball
 	camera.position.z = curCamZoom;
 	
+    player.velocity = new THREE.Vector3();
 	player.forwardSpeed = DEFAULT_FORWARD_SPEED;
 	player.backwardSpeed = DEFAULT_BACKWARD_SPEED;
 	
@@ -158,24 +162,40 @@ function init() {
 
         switch ( event.keyCode ) {
 
+        
+        //NOTE: do we want to have the arrow keys function as camera controls?
+        
             case 38: // up
             case 87: // w
+                //if currently moving backwards, sets velocity to 0 so that you immediately switch directions
                 moveForward = true;
+                if(player.velocity.z > 0 && moveBackward){
+                    player.velocity.z = 0;
+                }
+                player.velocity.z -= 10;
+                player.material.rotateZ(10);
                 break;
 
             case 37: // left
             case 65: // a
                 moveLeft = true; 
+                player.rotation.y += .05;
 				break;
 
             case 40: // down
             case 83: // s
                 moveBackward = true;
+                //if currently moving forward, sets velocity to 0 so that you immediately switch directions
+                if(player.velocity.z < 0 && moveForward){
+                    player.velocity.z = 0;
+                }
+                player.velocity.z += 10;
                 break;
 
             case 39: // right
             case 68: // d
                 moveRight = true;
+                player.rotation.y -= .05;
                 break;
 
             case 32: // space
@@ -195,7 +215,6 @@ function init() {
             case 38: // up
             case 87: // w
                 moveForward = false;
-				player.forwardSpeed = DEFAULT_FORWARD_SPEED;
                 break;
 
             case 37: // left
@@ -206,7 +225,6 @@ function init() {
             case 40: // down
             case 83: // s
                 moveBackward = false;
-				player.backwardSpeed = DEFAULT_BACKWARD_SPEED;
                 break;
 
             case 39: // right
@@ -324,31 +342,11 @@ function setupCollisions(item) {
 			if (collisions.length > 0) {
 				// console.log(collisions[0].distance);
 			}
-			console.log(this.rays[i]);
+			// console.log(this.rays[i]);
 			if (collisions.length > 0 && collisions[0].distance <= distance) {
-				  // Yep, this.rays[i] gives us : 0 => up, 1 => up-left, 2 => left, ...
-				if ((i === 0 || i === 1 || i === 7) && moveBackward) {
-								console.log(i);
-
-					// this.direction.setZ(0);
-					// moveForward = false;
-					player.backwardSpeed = 0;
-					console.log("back collide");
-				} else if ((i === 3 || i === 4 || i === 5) && moveForward) {
-								console.log(i);
-
-					// this.direction.setZ(0);
-					// moveBackward = false;
-					
-					//this one doesnt seem to work for some reason
-					console.log("front collide");
-					player.forwardSpeed = 0;
-				}
-				// if ((i === 1 || i === 2 || i === 3) && this.direction.x === 1) {
-					// // this.direction.setX(0);
-				// } else if ((i === 5 || i === 6 || i === 7) && this.direction.x === -1) {
-					// // this.direction.setX(0);
-				// }
+                //removed all conditions because all collisions will reverse z velocity
+                //sometimes gets stuck inside objects and ricochets against interior walls
+                player.velocity.z = -player.velocity.z;
 			}
 		}
 	};
@@ -381,23 +379,16 @@ function animate() {
         var time = performance.now();
         var delta = ( time - prevTime ) / 1000;
 
-        velocity.x -= velocity.x * 10.0 * delta;
-        velocity.z -= velocity.z * 10.0 * delta;
+        player.velocity.x -= player.velocity.x * 10.0 * delta;
+        player.velocity.z -= player.velocity.z * delta;
 
         velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
-
-        // if ( moveForward ) velocity.z -= 400.0 * delta;
-        // if ( moveBackward ) velocity.z += 400.0 * delta;
-		// console.log(player.forwardSpeed);
-		// console.log(player.backwardSpeed);
 		
-		if ( moveForward ) player.translateZ(player.forwardSpeed * -delta);
-		if ( moveBackward ) player.translateZ(player.backwardSpeed * delta);
+        //this is what updates the velocity
+		player.translateZ(player.velocity.z * delta);
 
-        // if ( moveLeft ) velocity.x -= 400.0 * delta;
-        // if ( moveRight ) velocity.x += 400.0 * delta;
-		if ( moveLeft ) player.rotateY(.05);
-		if ( moveRight ) player.rotateY(-.05);
+		if ( moveLeft ) player.rotation.y += .05;
+		if ( moveRight ) player.rotation.y -= .05;
 
         if ( isOnObject === true ) {
             velocity.y = Math.max( 0, velocity.y );
@@ -405,9 +396,9 @@ function animate() {
             canJump = true;
         }
 
-        controls.getObject().translateX( velocity.x * delta );
-        controls.getObject().translateY( velocity.y * delta );
-        controls.getObject().translateZ( velocity.z * delta );
+        // controls.getObject().translateX( player.velocity.x * delta );
+        // controls.getObject().translateY( player.velocity.y * delta );
+        // controls.getObject().translateZ( player.velocity.z * delta );
 
         if ( controls.getObject().position.y < 10 ) {
 
