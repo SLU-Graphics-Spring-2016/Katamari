@@ -15,6 +15,7 @@ var moveLeft = false;
 var moveRight = false;
 var canJump = false;
 var player;
+var raycastReference;
 var curCamZoom = 50;
 var DEFAULT_FORWARD_SPEED = 60;
 var DEFAULT_BACKWARD_SPEED = 60;
@@ -133,16 +134,26 @@ function init() {
     var playerMesh = new THREE.MeshPhongMaterial({ normalMap: normap, color: 0xff0033 });
     player = new THREE.Mesh(playerGeo, playerMesh);
 	
+	var intG = new THREE.CylinderGeometry(5, 5, 50, 32);
+	var intMat = new THREE.MeshPhongMaterial({color :0xBADA55, shininess : 100 });
+	var internal = new THREE.Mesh(intG, intMat);
+	player.add(internal);
+	
+	raycastReference = new THREE.Object3D();
+	scene.add(raycastReference);
+	
 	//Attach the camera to lock behind the ball
-	player.add(camera);
+	raycastReference.add(camera);
+	console.log(player);
 	//Current zoom of the camera behind the ball
 	camera.position.z = curCamZoom;
+	camera.position.y += 10;
 	
     player.velocity = new THREE.Vector3();
 	player.forwardSpeed = DEFAULT_FORWARD_SPEED;
 	player.backwardSpeed = DEFAULT_BACKWARD_SPEED;
-	
-	setupCollisions(player);
+	console.log(raycastReference);
+	setupCollisions(raycastReference);
 	
     scene.add(player);
     
@@ -169,33 +180,27 @@ function init() {
             case 87: // w
                 //if currently moving backwards, sets velocity to 0 so that you immediately switch directions
                 moveForward = true;
-                if(player.velocity.z > 0 && moveBackward){
-                    player.velocity.z = 0;
-                }
-                player.velocity.z -= 10;
-                player.material.rotateZ(10);
+
+                // player.material.rotateZ(10);
                 break;
 
             case 37: // left
             case 65: // a
                 moveLeft = true; 
-                player.rotation.y += .05;
+                // player.rotation.y += .05;
 				break;
 
             case 40: // down
             case 83: // s
                 moveBackward = true;
                 //if currently moving forward, sets velocity to 0 so that you immediately switch directions
-                if(player.velocity.z < 0 && moveForward){
-                    player.velocity.z = 0;
-                }
-                player.velocity.z += 10;
+                
                 break;
 
             case 39: // right
             case 68: // d
                 moveRight = true;
-                player.rotation.y -= .05;
+                // player.rotation.y -= .05;
                 break;
 
             case 32: // space
@@ -319,20 +324,21 @@ function setupCollisions(item) {
 	item.rays = [
 		new THREE.Vector3(0, 0, 1),
 		new THREE.Vector3(1, 0, 1),
-		new THREE.Vector3(1, 0, 0),
+		// new THREE.Vector3(1, 0, 0),
 		new THREE.Vector3(1, 0, -1),
 		new THREE.Vector3(0, 0, -1),
 		new THREE.Vector3(-1, 0, -1),
-		new THREE.Vector3(-1, 0, 0),
+		// new THREE.Vector3(-1, 0, 0),
 		new THREE.Vector3(-1, 0, 1)
 	];
 	
 	item.caster = new THREE.Raycaster();
 	
 	item.collision = function () {
+		//TODO: setup so that distance grows relative to ball size
 		var collisions, i, distance = 10, obstacles = objects;
 		for (i = 0; i < this.rays.length; i++) {
-			this.caster.set(this.mesh.position, this.rays[i]);
+			this.caster.set(this.position, this.rays[i]);
 			collisions = this.caster.intersectObjects(obstacles);
 			
 			//This is like the most important line of code I've ever written
@@ -340,13 +346,25 @@ function setupCollisions(item) {
 			this.rays[i].applyQuaternion(this.quaternion);
 			
 			if (collisions.length > 0) {
-				// console.log(collisions[0].distance);
+				// console.log(collisions);
+				
 			}
 			// console.log(this.rays[i]);
 			if (collisions.length > 0 && collisions[0].distance <= distance) {
                 //removed all conditions because all collisions will reverse z velocity
                 //sometimes gets stuck inside objects and ricochets against interior walls
-                player.velocity.z = -player.velocity.z;
+				
+				//TODO: temporarily removed, currently adds any object to ball
+                // player.velocity.z = -player.velocity.z;
+				//TODO: make offset relative to ray distance as ball grows
+				console.log(collisions[0].object.position.x);
+				console.log(collisions[0].object.matrix);
+				// collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
+				// collisions[0].object.matrixAutoUpdate = false;
+				collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
+				collisions[0].object.matrix.setPosition(player.matrix);
+				console.log(collisions[0].object.position.x);
+				player.children[0].add(collisions[0].object);
 			}
 		}
 	};
@@ -367,7 +385,7 @@ function animate() {
     requestAnimationFrame( animate );
 
     if ( controlsEnabled ) {
-		player.collision();
+		raycastReference.collision();
 		
         raycaster.ray.origin.copy( controls.getObject().position );
         raycaster.ray.origin.y -= 10;
@@ -378,17 +396,41 @@ function animate() {
 
         var time = performance.now();
         var delta = ( time - prevTime ) / 1000;
+		
+		
 
-        player.velocity.x -= player.velocity.x * 10.0 * delta;
+        // player.velocity.x -= player.velocity.x * 10.0 * delta;
         player.velocity.z -= player.velocity.z * delta;
 
         velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
 		
         //this is what updates the velocity
+		if (moveForward) {
+				if(player.velocity.z > 0 && moveBackward){
+                    player.velocity.z = 0;
+                }
+                player.velocity.z -= 10;
+		}
+		if (moveBackward) {
+			if(player.velocity.z < 0 && moveForward){
+                    player.velocity.z = 0;
+                }
+                player.velocity.z += 10;
+		}
+		
+		// console.log(player.velocity.z);
+		player.children[0].rotateX((player.velocity.z)/(Math.PI * 2 * 500));
+		
 		player.translateZ(player.velocity.z * delta);
 
-		if ( moveLeft ) player.rotation.y += .05;
-		if ( moveRight ) player.rotation.y -= .05;
+		if ( moveLeft ) {
+			player.rotation.y += .05;
+			raycastReference.rotation.y += .05;
+		}
+		if ( moveRight ) {
+			player.rotation.y -= .05;
+			raycastReference.rotation.y -= .05;
+		}
 
         if ( isOnObject === true ) {
             velocity.y = Math.max( 0, velocity.y );
@@ -408,6 +450,9 @@ function animate() {
             canJump = true;
 
         }
+		
+		raycastReference.position.set(player.position.x, player.position.y, player.position.z);
+		
 
         prevTime = time;
 
