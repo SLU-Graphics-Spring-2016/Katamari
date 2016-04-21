@@ -127,15 +127,15 @@ function init() {
     scene.fog = new THREE.Fog( 0xffffff, 0, 750 );
 
         // Add player object
-    var playerGeo = new THREE.SphereGeometry(10,32,32);
+    var playerGeo = new THREE.SphereGeometry(1,32,32);
     //added sample texture to try to work on simulating the ball actually rolling
     var normap = new THREE.TextureLoader().load("BlackMarble.png");
 
     var playerMesh = new THREE.MeshPhongMaterial({ normalMap: normap, color: 0xff0033 });
     player = new THREE.Mesh(playerGeo, playerMesh);
 	
-	var intG = new THREE.CylinderGeometry(5, 5, 50, 32);
-	var intMat = new THREE.MeshPhongMaterial({color :0xBADA55, shininess : 100 });
+	var intG = new THREE.SphereGeometry(10, 32, 32);
+	var intMat = new THREE.MeshPhongMaterial({color :0x0066ff, shininess : 100, normalMap: normap });
 	var internal = new THREE.Mesh(intG, intMat);
 	player.add(internal);
 	
@@ -288,15 +288,16 @@ function init() {
 
     }
 
-    for ( var i = 0; i < 500; i ++ ) {
+    for ( var i = 0; i < 5; i ++ ) {
 
         material = new THREE.MeshPhongMaterial( { specular: 0xffffff, shading: THREE.FlatShading, vertexColors: THREE.VertexColors } );
 
         var mesh = new THREE.Mesh( geometry, material );
         mesh.position.x = Math.floor( Math.random() * 20 - 10 ) * 20;
-        mesh.position.y = Math.floor( Math.random() * 20 ) * 20 + 10;
+        mesh.position.y = 10;
         mesh.position.z = Math.floor( Math.random() * 20 - 10 ) * 20;
         scene.add( mesh );
+        console.log(mesh.matrix);
 
         material.color.setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
 
@@ -336,19 +337,15 @@ function setupCollisions(item) {
 	
 	item.collision = function () {
 		//TODO: setup so that distance grows relative to ball size
-		var collisions, i, distance = 10, obstacles = objects;
+		var collisions, i, distance = 10;
 		for (i = 0; i < this.rays.length; i++) {
 			this.caster.set(this.position, this.rays[i]);
-			collisions = this.caster.intersectObjects(obstacles);
+			collisions = this.caster.intersectObjects(objects);
 			
 			//This is like the most important line of code I've ever written
 			//It turns the rays based on the objects rotation
-			this.rays[i].applyQuaternion(this.quaternion);
+			// this.rays[i].applyQuaternion(this.quaternion);
 			
-			if (collisions.length > 0) {
-				// console.log(collisions);
-				
-			}
 			// console.log(this.rays[i]);
 			if (collisions.length > 0 && collisions[0].distance <= distance) {
                 //removed all conditions because all collisions will reverse z velocity
@@ -357,14 +354,24 @@ function setupCollisions(item) {
 				//TODO: temporarily removed, currently adds any object to ball
                 // player.velocity.z = -player.velocity.z;
 				//TODO: make offset relative to ray distance as ball grows
-				console.log(collisions[0].object.position.x);
-				console.log(collisions[0].object.matrix);
+
+                collisions[0].object.updateMatrix();
+				collisions[0].object.matrixAutoUpdate = false;
+                
 				// collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
-				// collisions[0].object.matrixAutoUpdate = false;
-				collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
-				collisions[0].object.matrix.setPosition(player.matrix);
+				// collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
 				console.log(collisions[0].object.position.x);
-				player.children[0].add(collisions[0].object);
+                console.log(objects);
+                var m = new THREE.Matrix4();
+                m.getInverse(player.children[0].matrixWorld);
+                
+                console.log(player.children[0].matrixWorld);
+                console.log(collisions[0].object.matrix);
+                console.log(m);
+                
+                collisions[0].object.matrix.multiply(m);
+                scene.remove(collisions[0].object);
+                player.children[0].add(collisions[0].object);
 			}
 		}
 	};
