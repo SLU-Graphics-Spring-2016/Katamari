@@ -288,7 +288,7 @@ function init() {
 
     }
 
-    for ( var i = 0; i < 5; i ++ ) {
+    for ( var i = 0; i < 50; i ++ ) {
 
         material = new THREE.MeshPhongMaterial( { specular: 0xffffff, shading: THREE.FlatShading, vertexColors: THREE.VertexColors } );
 
@@ -355,28 +355,75 @@ function setupCollisions(item) {
                 // player.velocity.z = -player.velocity.z;
 				//TODO: make offset relative to ray distance as ball grows
 
-                collisions[0].object.updateMatrix();
-				collisions[0].object.matrixAutoUpdate = false;
+                // collisions[0].object.updateMatrix();
+                // collisions[0].object.updateMatrixWorld();
+				// player.children[0].updateMatrix();
+				// player.children[0].updateMatrixWorld();
+				
+				// collisions[0].object.matrixAutoUpdate = false;
+				
+				removeFromObjects(collisions[0].object);
                 
 				// collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
 				// collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
 				console.log(collisions[0].object.position.x);
                 console.log(objects);
-                var m = new THREE.Matrix4();
-                m.getInverse(player.children[0].matrixWorld);
+                // var m = new THREE.Matrix4();
+                // m.getInverse(player.children[0].matrixWorld);
                 
                 console.log(player.children[0].matrixWorld);
                 console.log(collisions[0].object.matrix);
-                console.log(m);
+                // console.log(m);
+				console.log(collisions);
+				console.log(collisions[0].object.position);
+				
+				var obV = new THREE.Vector3();
+				obV.setFromMatrixPosition(collisions[0].object.matrixWorld);
+				var plV = new THREE.Vector3();
+				plV.setFromMatrixPosition(player.children[0].matrixWorld);
+				player.children[0].worldToLocal(plV);
+				player.children[0].worldToLocal(obV);
+				
+				console.log(obV);
+				obV.sub(plV);
+				console.log(obV);
+				
+				// .worldToLocal
+				
+				// var tx, ty, tz;
+				// tx = player.children[0].rotation.x;
+				// ty = player.children[0].rotation.y;
+				// tz = player.children[0].rotation.z;
+				
+				// player.children[0].rotation.set(0, 0, 0);
+				// player.children[0].updateMatrix();
+				
+				var obRot = new THREE.Matrix4();
+				obRot.makeRotationFromQuaternion(player.children[0].quaternion);
+				collisions[0].object.quaternion.setFromRotationMatrix(obRot);
                 
-                collisions[0].object.matrix.multiply(m);
-                scene.remove(collisions[0].object);
+                // collisions[0].object.matrix.multiply(m);
+                // scene.remove(collisions[0].object);
                 player.children[0].add(collisions[0].object);
+				collisions[0].object.position.copy(obV);
+				// player.children[0].rotation.set(tx, ty, tz);
+				console.log(collisions[0].object.position);
 			}
 		}
 	};
 	
 };
+
+function removeFromObjects(obj) {
+	console.log(obj);
+	for (var i = 0; i < objects.length; i++) {
+		
+	console.log(objects[i]);
+		if (objects[i] === obj) {
+			objects.splice(i, 1);
+		}
+	}
+}
 
 function onWindowResize() {
 
