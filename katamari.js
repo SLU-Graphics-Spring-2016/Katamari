@@ -6,7 +6,6 @@ var objects = [];
 
 var raycaster;
 
-
 var controlsEnabled = false;
 
 var moveForward = false;
@@ -15,6 +14,7 @@ var moveLeft = false;
 var moveRight = false;
 var canJump = false;
 var player;
+var exterior;
 var raycastReference;
 var curCamZoom = 50;
 var DEFAULT_FORWARD_SPEED = 60;
@@ -23,101 +23,22 @@ var DEFAULT_BACKWARD_SPEED = 60;
 var prevTime = performance.now();
 var velocity = new THREE.Vector3();
 
-var blocker = document.getElementById( 'blocker' );
-var instructions = document.getElementById( 'instructions' );
+var element = document.body;
 
-// http://www.html5rocks.com/en/tutorials/pointerlock/intro/
+controlsEnabled = true;
 
-var havePointerLock = 'pointerLockElement' in document || 'mozPointerLockElement' in document || 'webkitPointerLockElement' in document;
+var fullscreenchange = function ( event ) {
+    if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
+        document.removeEventListener( 'fullscreenchange', fullscreenchange );
+        document.removeEventListener( 'mozfullscreenchange', fullscreenchange );    
+    }
+};
 
-if ( havePointerLock ) {
+document.addEventListener( 'fullscreenchange', fullscreenchange, false );
+document.addEventListener( 'mozfullscreenchange', fullscreenchange, false );
+element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
+element.requestFullscreen();
 
-    var element = document.body;
-
-    var pointerlockchange = function ( event ) {
-
-        if ( document.pointerLockElement === element || document.mozPointerLockElement === element || document.webkitPointerLockElement === element ) {
-
-            controlsEnabled = true;
-            controls.enabled = true;
-
-            // blocker.style.display = 'none';
-
-        } else {
-
-            controls.enabled = false;
-
-            blocker.style.display = '-webkit-box';
-            blocker.style.display = '-moz-box';
-            blocker.style.display = 'box';
-
-            // instructions.style.display = '';
-
-        }
-
-    };
-
-    var pointerlockerror = function ( event ) {
-
-        // instructions.style.display = '';
-
-    };
-
-	//Comment this out to remove mouse controls for now
-    // Hook pointer lock state change events
-    // document.addEventListener( 'pointerlockchange', pointerlockchange, false );
-    // document.addEventListener( 'mozpointerlockchange', pointerlockchange, false );
-    // document.addEventListener( 'webkitpointerlockchange', pointerlockchange, false );
-
-    document.addEventListener( 'pointerlockerror', pointerlockerror, false );
-    document.addEventListener( 'mozpointerlockerror', pointerlockerror, false );
-    document.addEventListener( 'webkitpointerlockerror', pointerlockerror, false );
-
-    document.addEventListener( 'click', function ( event ) {
-
-        // instructions.style.display = 'none';
-		
-		//Once screen is selected, interaction begins
-		controlsEnabled = true;
-
-        // Ask the browser to lock the pointer
-        element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock || element.webkitRequestPointerLock;
-
-        if ( /Firefox/i.test( navigator.userAgent ) ) {
-
-            var fullscreenchange = function ( event ) {
-
-                if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
-
-                    document.removeEventListener( 'fullscreenchange', fullscreenchange );
-                    document.removeEventListener( 'mozfullscreenchange', fullscreenchange );
-
-                    // element.requestPointerLock();
-					
-                }
-
-            };
-
-            document.addEventListener( 'fullscreenchange', fullscreenchange, false );
-            document.addEventListener( 'mozfullscreenchange', fullscreenchange, false );
-
-            element.requestFullscreen = element.requestFullscreen || element.mozRequestFullscreen || element.mozRequestFullScreen || element.webkitRequestFullscreen;
-
-            element.requestFullscreen();
-
-        } else {
-
-            element.requestPointerLock();
-
-        }
-
-    }, false );
-
-} else {
-
-    // instructions.innerHTML = 'Your browser doesn\'t seem to support Pointer Lock API';
-
-}
 
 function init() {
 
@@ -126,25 +47,23 @@ function init() {
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog( 0xffffff, 0, 750 );
 
-        // Add player object
-    var playerGeo = new THREE.SphereGeometry(1,32,32);
+    // Add player object
     //added sample texture to try to work on simulating the ball actually rolling
     var normap = new THREE.TextureLoader().load("BlackMarble.png");
 
-    var playerMesh = new THREE.MeshPhongMaterial({ normalMap: normap, color: 0xff0033 });
-    player = new THREE.Mesh(playerGeo, playerMesh);
+    player = new THREE.Object3D();
 	
-	var intG = new THREE.SphereGeometry(10, 32, 32);
-	var intMat = new THREE.MeshPhongMaterial({color :0x0066ff, shininess : 100, normalMap: normap });
-	var internal = new THREE.Mesh(intG, intMat);
-	player.add(internal);
+	var extG = new THREE.SphereGeometry(10, 32, 32);
+	var extMat = new THREE.MeshPhongMaterial({color :0x0066ff, shininess : 100, normalMap: normap });
+	var exterior = new THREE.Mesh(extG, extMat);
+	player.add(exterior);
 	
 	raycastReference = new THREE.Object3D();
 	scene.add(raycastReference);
 	
 	//Attach the camera to lock behind the ball
 	raycastReference.add(camera);
-	console.log(player);
+	// console.log(player);
 	//Current zoom of the camera behind the ball
 	camera.position.z = curCamZoom;
 	camera.position.y += 10;
@@ -152,7 +71,6 @@ function init() {
     player.velocity = new THREE.Vector3();
 	player.forwardSpeed = DEFAULT_FORWARD_SPEED;
 	player.backwardSpeed = DEFAULT_BACKWARD_SPEED;
-	console.log(raycastReference);
 	setupCollisions(raycastReference);
 	
     scene.add(player);
@@ -173,7 +91,6 @@ function init() {
 
         switch ( event.keyCode ) {
 
-        
         //NOTE: do we want to have the arrow keys function as camera controls?
         
             case 38: // up
@@ -209,7 +126,6 @@ function init() {
                 break;
 
         }
-
     };
 
 	//Setting the player.xSpeed resets player movement
@@ -297,7 +213,6 @@ function init() {
         mesh.position.y = 10;
         mesh.position.z = Math.floor( Math.random() * 20 - 10 ) * 20;
         scene.add( mesh );
-        console.log(mesh.matrix);
 
         material.color.setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
 
@@ -325,11 +240,11 @@ function setupCollisions(item) {
 	item.rays = [
 		new THREE.Vector3(0, 0, 1),
 		new THREE.Vector3(1, 0, 1),
-		// new THREE.Vector3(1, 0, 0),
+		new THREE.Vector3(1, 0, 0),
 		new THREE.Vector3(1, 0, -1),
 		new THREE.Vector3(0, 0, -1),
 		new THREE.Vector3(-1, 0, -1),
-		// new THREE.Vector3(-1, 0, 0),
+		new THREE.Vector3(-1, 0, 0),
 		new THREE.Vector3(-1, 0, 1)
 	];
 	
@@ -341,10 +256,6 @@ function setupCollisions(item) {
 		for (i = 0; i < this.rays.length; i++) {
 			this.caster.set(this.position, this.rays[i]);
 			collisions = this.caster.intersectObjects(objects);
-			
-			//This is like the most important line of code I've ever written
-			//It turns the rays based on the objects rotation
-			// this.rays[i].applyQuaternion(this.quaternion);
 			
 			// console.log(this.rays[i]);
 			if (collisions.length > 0 && collisions[0].distance <= distance) {
@@ -366,16 +277,16 @@ function setupCollisions(item) {
                 
 				// collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
 				// collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
-				console.log(collisions[0].object.position.x);
-                console.log(objects);
+				// console.log(collisions[0].object.position.x);
+                // console.log(objects);
                 // var m = new THREE.Matrix4();
                 // m.getInverse(player.children[0].matrixWorld);
                 
-                console.log(player.children[0].matrixWorld);
-                console.log(collisions[0].object.matrix);
+                // console.log(player.children[0].matrixWorld);
+                // console.log(collisions[0].object.matrix);
                 // console.log(m);
-				console.log(collisions);
-				console.log(collisions[0].object.position);
+				// console.log(collisions);
+				// console.log(collisions[0].object.position);
 				
 				var obV = new THREE.Vector3();
 				obV.setFromMatrixPosition(collisions[0].object.matrixWorld);
@@ -384,9 +295,9 @@ function setupCollisions(item) {
 				player.children[0].worldToLocal(plV);
 				player.children[0].worldToLocal(obV);
 				
-				console.log(obV);
+				// console.log(obV);
 				obV.sub(plV);
-				console.log(obV);
+				// console.log(obV);
 				
 				// .worldToLocal
 				
@@ -407,7 +318,7 @@ function setupCollisions(item) {
                 player.children[0].add(collisions[0].object);
 				collisions[0].object.position.copy(obV);
 				// player.children[0].rotation.set(tx, ty, tz);
-				console.log(collisions[0].object.position);
+				// console.log(collisions[0].object.position);
 			}
 		}
 	};
@@ -415,10 +326,10 @@ function setupCollisions(item) {
 };
 
 function removeFromObjects(obj) {
-	console.log(obj);
+	// console.log(obj);
 	for (var i = 0; i < objects.length; i++) {
 		
-	console.log(objects[i]);
+	// console.log(objects[i]);
 		if (objects[i] === obj) {
 			objects.splice(i, 1);
 		}
@@ -451,11 +362,10 @@ function animate() {
         var time = performance.now();
         var delta = ( time - prevTime ) / 1000;
 		
-		
-
-        // player.velocity.x -= player.velocity.x * 10.0 * delta;
         player.velocity.z -= player.velocity.z * delta;
-
+        player.velocity.x -= player.velocity.x * delta;
+        // player.velocity.x -= player.velocity.x * delta;
+        
         velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
 		
         //this is what updates the velocity
@@ -472,23 +382,33 @@ function animate() {
                 player.velocity.z += 10;
 		}
 		
-		// console.log(player.velocity.z);
 		player.children[0].rotateX((player.velocity.z)/(Math.PI * 2 * 500));
+        player.children[0].rotateZ((player.velocity.x)/(Math.PI * 2 * 500));
 		
+        player.translateX(player.velocity.x * delta);
 		player.translateZ(player.velocity.z * delta);
 
 		if ( moveLeft ) {
-			player.rotation.y += .05;
+            if(player.velocity.x < 0 && moveRight){
+                player.velocity.x = 0;
+            }
+            player.velocity.x += 5;
+            
+            player.rotation.y += .05;
 			raycastReference.rotation.y += .05;
 		}
 		if ( moveRight ) {
-			player.rotation.y -= .05;
+            if(player.velocity.x > 0 && moveLeft){
+                player.velocity.x = 0;
+            }
+            player.velocity.x -= 5;
+            
+            player.rotation.y -= .05;
 			raycastReference.rotation.y -= .05;
 		}
 
         if ( isOnObject === true ) {
             velocity.y = Math.max( 0, velocity.y );
-
             canJump = true;
         }
 
@@ -500,22 +420,18 @@ function animate() {
 
             velocity.y = 0;
             controls.getObject().position.y = 10;
-
             canJump = true;
 
         }
 		
 		raycastReference.position.set(player.position.x, player.position.y, player.position.z);
 		
-
         prevTime = time;
 
     }
-
     renderer.render( scene, camera );
 
 }
 
 init();
 animate();
-
