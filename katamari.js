@@ -16,9 +16,13 @@ var canJump = false;
 var player;
 var exterior;
 var raycastReference;
-var curCamZoom = 50;
+var curCamZoom = 70;
 var DEFAULT_FORWARD_SPEED = 60;
 var DEFAULT_BACKWARD_SPEED = 60;
+
+var localXaxis = new THREE.Vector3(1, 0, 0);
+var localYaxis = new THREE.Vector3(0, 1, 0);
+var localZaxis = new THREE.Vector3(0, 0, 1);
 
 var prevTime = performance.now();
 var velocity = new THREE.Vector3();
@@ -374,6 +378,7 @@ function animate() {
                     player.velocity.z = 0;
                 }
                 player.velocity.z -= 10;
+				console.log(camera);
 		}
 		if (moveBackward) {
 			if(player.velocity.z < 0 && moveForward){
@@ -382,10 +387,14 @@ function animate() {
                 player.velocity.z += 10;
 		}
 		
-		player.children[0].rotateX((player.velocity.z)/(Math.PI * 2 * 500));
-        player.children[0].rotateZ((player.velocity.x)/(Math.PI * 2 * 500));
+		// player.children[0].rotateX((player.velocity.z)/(Math.PI * 2 * 500));
+		// player.children[0].rotateOnAxis(localZaxis, (player.velocity.z)/(Math.PI * 2 * 500));
+		// player.children[0].rotateOnAxis(localXaxis, -(player.velocity.x)/(Math.PI * 2 * 500));
+        // player.children[0].rotateZ(-(player.velocity.x)/(Math.PI * 2 * 500));
+		rotateAroundWorldAxis(player.children[0], localXaxis, (player.velocity.z)/(Math.PI * 2 * 500));
+		rotateAroundWorldAxis(player.children[0], localZaxis, (player.velocity.x)/(Math.PI * 2 * 500));
 		
-        player.translateX(player.velocity.x * delta);
+        player.translateX(-player.velocity.x * delta);
 		player.translateZ(player.velocity.z * delta);
 
 		if ( moveLeft ) {
@@ -432,6 +441,46 @@ function animate() {
     renderer.render( scene, camera );
 
 }
+
+var rotObjectMatrix;
+function rotateAroundObjectAxis(object, axis, radians) {
+    rotObjectMatrix = new THREE.Matrix4();
+    rotObjectMatrix.makeRotationAxis(axis.normalize(), radians);
+
+    // old code for Three.JS pre r54:
+    // object.matrix.multiplySelf(rotObjectMatrix);      // post-multiply
+    // new code for Three.JS r55+:
+    object.matrix.multiply(rotObjectMatrix);
+
+    // old code for Three.js pre r49:
+    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
+    // old code for Three.js r50-r58:
+    // object.rotation.setEulerFromRotationMatrix(object.matrix);
+    // new code for Three.js r59+:
+    object.rotation.setFromRotationMatrix(object.matrix);
+}
+
+var rotWorldMatrix;
+// Rotate an object around an arbitrary axis in world space       
+function rotateAroundWorldAxis(object, axis, radians) {
+    rotWorldMatrix = new THREE.Matrix4();
+    rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
+
+    // old code for Three.JS pre r54:
+    //  rotWorldMatrix.multiply(object.matrix);
+    // new code for Three.JS r55+:
+    rotWorldMatrix.multiply(object.matrix);                // pre-multiply
+
+    object.matrix = rotWorldMatrix;
+
+    // old code for Three.js pre r49:
+    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
+    // old code for Three.js pre r59:
+    // object.rotation.setEulerFromRotationMatrix(object.matrix);
+    // code for r59+:
+    object.rotation.setFromRotationMatrix(object.matrix);
+}
+
 
 init();
 animate();
