@@ -20,6 +20,7 @@ var curCamZoom = 70;
 var DEFAULT_FORWARD_SPEED = 60;
 var DEFAULT_BACKWARD_SPEED = 60;
 var distance = 10;
+var objsAdded = 0;
 
 var localXaxis = new THREE.Vector3(1, 0, 0);
 var localYaxis = new THREE.Vector3(0, 1, 0);
@@ -210,14 +211,14 @@ function init() {
 
     }
 
-    for ( var i = 0; i < 500; i ++ ) {
+    for ( var i = 0; i < 1000; i ++ ) {
 
         material = new THREE.MeshPhongMaterial( { specular: 0xffffff, shading: THREE.FlatShading, vertexColors: THREE.VertexColors } );
 
         var mesh = new THREE.Mesh( geometry, material );
-        mesh.position.x = Math.floor( Math.random() * 20 - 10 ) * 20;
+        mesh.position.x = Math.floor( Math.random() * 50 - 10 ) * 20;
         mesh.position.y = 10;
-        mesh.position.z = Math.floor( Math.random() * 20 - 10 ) * 20;
+        mesh.position.z = Math.floor( Math.random() * 50 - 10 ) * 20;
         scene.add( mesh );
 
         material.color.setHSL( Math.random() * 0.2 + 0.5, 0.75, Math.random() * 0.25 + 0.75 );
@@ -246,12 +247,27 @@ function setupCollisions(item) {
 	item.rays = [
 		new THREE.Vector3(0, 0, 1),
 		new THREE.Vector3(1, 0, 1),
+		new THREE.Vector3(-1, 0, 1),
 		new THREE.Vector3(1, 0, 0),
+		new THREE.Vector3(-1, 0, 0),
 		new THREE.Vector3(1, 0, -1),
 		new THREE.Vector3(0, 0, -1),
 		new THREE.Vector3(-1, 0, -1),
-		new THREE.Vector3(-1, 0, 0),
-		new THREE.Vector3(-1, 0, 1)
+		// new THREE.Vector3(0, 1, 0),
+		// new THREE.Vector3(-1, 1, 0),
+		// new THREE.Vector3(1, 1, 0),
+		// new THREE.Vector3(0, 1, 1),
+		// new THREE.Vector3(0, 1, -1),
+		new THREE.Vector3(0, -1, 0),
+		new THREE.Vector3(-1, -1, 0),
+		new THREE.Vector3(1, -1, 0),
+		new THREE.Vector3(0, -1, 1),
+		new THREE.Vector3(0, -1, -1),
+		new THREE.Vector3(1, -1, 1),
+		new THREE.Vector3(-1, -1, 1),
+		new THREE.Vector3(1, -1, -1),
+		new THREE.Vector3(-1, -1, -1)
+		
 	];
 	
 	item.caster = new THREE.Raycaster();
@@ -323,16 +339,108 @@ function setupCollisions(item) {
                 // scene.remove(collisions[0].object);
                 player.children[0].add(collisions[0].object);
 				collisions[0].object.position.copy(obV);
+				objsAdded += 1;
+				
+				if (objsAdded > 400) {
+					player.children[0].remove(player.children[0].children[1]);
+					console.log(player.children[0].children.length);
+				}
+				
 				// player.children[0].rotation.set(tx, ty, tz);
 				// console.log(collisions[0].object.position);
-				distance += 0.1;
-				curCamZoom += 0.11;
+				console.log(Math.log(objsAdded+1)*4);
+				distance += 1/(Math.log(objsAdded+1)*4);
+				curCamZoom += 0.12;
 				camera.position.z = curCamZoom;
-				camera.position.y += 0.05;
+				camera.position.y += 0.08;
 				camera.rotation.x -= 0.0001;
+				player.position.y += 0.01*(Math.log(objsAdded+1)*4);
 			}
 		}
 	};
+	
+	// item.collisionChild = function () {
+		// //TODO: setup so that distance grows relative to ball size
+		// var collisions, i, j;
+		// for (i = 0; i < this.rays.length; i++) {
+			// for (j = 1; j < player.children[0].children.length; j++) {
+				// // var childWorldPos = player.children[0].children[j].localToWorld(player.children[0].children[j].position);
+				// // console.log(childWorldPos);
+				// this.caster.set(player.children[0].children[j].position, this.rays[i]);
+				// collisions = this.caster.intersectObjects(objects);
+				
+				// // console.log(this.rays[i]);
+				// if (collisions.length > 0 && collisions[0].distance <= distance) {
+					// //removed all conditions because all collisions will reverse z velocity
+					// //sometimes gets stuck inside objects and ricochets against interior walls
+					
+					// //TODO: temporarily removed, currently adds any object to ball
+					// // player.velocity.z = -player.velocity.z;
+					// //TODO: make offset relative to ray distance as ball grows
+
+					// // collisions[0].object.updateMatrix();
+					// // collisions[0].object.updateMatrixWorld();
+					// player.children[0].updateMatrix();
+					// // player.children[0].updateMatrixWorld();
+					
+					// // collisions[0].object.matrixAutoUpdate = false;
+					
+					// removeFromObjects(collisions[0].object);
+					
+					// // collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
+					// // collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
+					// // console.log(collisions[0].object.position.x);
+					// // console.log(objects);
+					// // var m = new THREE.Matrix4();
+					// // m.getInverse(player.children[0].matrixWorld);
+					
+					// // console.log(player.children[0].matrixWorld);
+					// // console.log(collisions[0].object.matrix);
+					// // console.log(m);
+					// // console.log(collisions);
+					// // console.log(collisions[0].object.position);
+					
+					// var obV = new THREE.Vector3();
+					// obV.setFromMatrixPosition(collisions[0].object.matrixWorld);
+					// var plV = new THREE.Vector3();
+					// plV.setFromMatrixPosition(player.children[0].matrixWorld);
+					// player.children[0].worldToLocal(plV);
+					// player.children[0].worldToLocal(obV);
+					
+					// // console.log(obV);
+					// obV.sub(plV);
+					// // console.log(obV);
+					
+					// // .worldToLocal
+					
+					// // var tx, ty, tz;
+					// // tx = player.children[0].rotation.x;
+					// // ty = player.children[0].rotation.y;
+					// // tz = player.children[0].rotation.z;
+					
+					// // player.children[0].rotation.set(0, 0, 0);
+					// // player.children[0].updateMatrix();
+					
+					// var obRot = new THREE.Matrix4();
+					// obRot.makeRotationFromQuaternion(player.children[0].quaternion);
+					// collisions[0].object.quaternion.setFromRotationMatrix(obRot);
+					
+					// // collisions[0].object.matrix.multiply(m);
+					// // scene.remove(collisions[0].object);
+					// player.children[0].add(collisions[0].object);
+					// collisions[0].object.position.copy(obV);
+					// // player.children[0].rotation.set(tx, ty, tz);
+					// // console.log(collisions[0].object.position);
+					// // console.log(objects.length);
+					// // distance += 0.1/(player.children.length);
+					// curCamZoom += 0.11;
+					// camera.position.z = curCamZoom;
+					// camera.position.y += 0.03;
+					// camera.rotation.x -= 0.00001;
+				// }
+			// }
+		// }
+	// };
 	
 };
 
@@ -343,6 +451,7 @@ function removeFromObjects(obj) {
 	// console.log(objects[i]);
 		if (objects[i] === obj) {
 			objects.splice(i, 1);
+			console.log("object removed");
 		}
 	}
 }
@@ -361,6 +470,7 @@ function animate() {
     requestAnimationFrame( animate );
 
     if ( controlsEnabled ) {
+		// raycastReference.collisionChild();
 		raycastReference.collision();
 		
         raycaster.ray.origin.copy( controls.getObject().position );
@@ -385,7 +495,6 @@ function animate() {
                     player.velocity.z = 0;
                 }
                 player.velocity.z -= 10;
-				console.log(camera);
 		}
 		if (moveBackward) {
 			if(player.velocity.z < 0 && moveForward){
@@ -408,19 +517,19 @@ function animate() {
             if(player.velocity.x < 0 && moveRight){
                 player.velocity.x = 0;
             }
-            player.velocity.x += 5;
+            player.velocity.x += 3;
             
-            player.rotation.y += .05;
-			raycastReference.rotation.y += .05;
+            player.rotation.y += .03;
+			raycastReference.rotation.y += .03;
 		}
 		if ( moveRight ) {
             if(player.velocity.x > 0 && moveLeft){
                 player.velocity.x = 0;
             }
-            player.velocity.x -= 5;
+            player.velocity.x -= 3;
             
-            player.rotation.y -= .05;
-			raycastReference.rotation.y -= .05;
+            player.rotation.y -= .03;
+			raycastReference.rotation.y -= .03;
 		}
 
         if ( isOnObject === true ) {
