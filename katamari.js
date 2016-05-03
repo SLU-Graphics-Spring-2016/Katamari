@@ -19,6 +19,7 @@ var raycastReference;
 var curCamZoom = 70;
 var DEFAULT_FORWARD_SPEED = 60;
 var DEFAULT_BACKWARD_SPEED = 60;
+var distance = 10;
 
 var localXaxis = new THREE.Vector3(1, 0, 0);
 var localYaxis = new THREE.Vector3(0, 1, 0);
@@ -70,7 +71,8 @@ function init() {
 	// console.log(player);
 	//Current zoom of the camera behind the ball
 	camera.position.z = curCamZoom;
-	camera.position.y += 10;
+	camera.position.y += 40;
+	camera.rotation.x -= 0.2;
 	
     player.velocity = new THREE.Vector3();
 	player.forwardSpeed = DEFAULT_FORWARD_SPEED;
@@ -208,7 +210,7 @@ function init() {
 
     }
 
-    for ( var i = 0; i < 50; i ++ ) {
+    for ( var i = 0; i < 500; i ++ ) {
 
         material = new THREE.MeshPhongMaterial( { specular: 0xffffff, shading: THREE.FlatShading, vertexColors: THREE.VertexColors } );
 
@@ -256,7 +258,7 @@ function setupCollisions(item) {
 	
 	item.collision = function () {
 		//TODO: setup so that distance grows relative to ball size
-		var collisions, i, distance = 10;
+		var collisions, i;
 		for (i = 0; i < this.rays.length; i++) {
 			this.caster.set(this.position, this.rays[i]);
 			collisions = this.caster.intersectObjects(objects);
@@ -272,7 +274,7 @@ function setupCollisions(item) {
 
                 // collisions[0].object.updateMatrix();
                 // collisions[0].object.updateMatrixWorld();
-				// player.children[0].updateMatrix();
+				player.children[0].updateMatrix();
 				// player.children[0].updateMatrixWorld();
 				
 				// collisions[0].object.matrixAutoUpdate = false;
@@ -323,6 +325,11 @@ function setupCollisions(item) {
 				collisions[0].object.position.copy(obV);
 				// player.children[0].rotation.set(tx, ty, tz);
 				// console.log(collisions[0].object.position);
+				distance += 0.1;
+				curCamZoom += 0.11;
+				camera.position.z = curCamZoom;
+				camera.position.y += 0.05;
+				camera.rotation.x -= 0.0001;
 			}
 		}
 	};
