@@ -6,24 +6,20 @@ var objects = [];
 
 var raycaster;
 
-var controlsEnabled = false;
 
 var moveForward = false;
 var moveBackward = false;
 var moveLeft = false;
 var moveRight = false;
-var canJump = false;
 var player;
 var exterior;
 var raycastReference;
 var curCamZoom = 70;
-var DEFAULT_FORWARD_SPEED = 60;
-var DEFAULT_BACKWARD_SPEED = 60;
 var distance = 10;
 var objsAdded = 0;
+var maxObjectsOnBall = 400;
 
 var localXaxis = new THREE.Vector3(1, 0, 0);
-var localYaxis = new THREE.Vector3(0, 1, 0);
 var localZaxis = new THREE.Vector3(0, 0, 1);
 
 var prevTime = performance.now();
@@ -31,7 +27,6 @@ var velocity = new THREE.Vector3();
 
 var element = document.body;
 
-controlsEnabled = true;
 
 var fullscreenchange = function ( event ) {
     if ( document.fullscreenElement === element || document.mozFullscreenElement === element || document.mozFullScreenElement === element ) {
@@ -63,33 +58,31 @@ function init() {
 	var extMat = new THREE.MeshPhongMaterial({color :0x0066ff, shininess : 100, normalMap: normap });
 	var exterior = new THREE.Mesh(extG, extMat);
 	player.add(exterior);
-	
+	//This is the object that follows the ball and keeps its z/y rotation
+	//It casts rays outwards to detect objects for the player
 	raycastReference = new THREE.Object3D();
+	raycastReference.position.y = 2;
 	scene.add(raycastReference);
 	
 	//Attach the camera to lock behind the ball
 	raycastReference.add(camera);
-	// console.log(player);
 	//Current zoom of the camera behind the ball
 	camera.position.z = curCamZoom;
 	camera.position.y += 40;
 	camera.rotation.x -= 0.2;
 	
     player.velocity = new THREE.Vector3();
-	player.forwardSpeed = DEFAULT_FORWARD_SPEED;
-	player.backwardSpeed = DEFAULT_BACKWARD_SPEED;
+	
+	player.position.y = 10;
 	setupCollisions(raycastReference);
 	
     scene.add(player);
+	
     
     var light = new THREE.HemisphereLight( 0xeeeeff, 0x777788, 0.75 );
     light.position.set( 0.5, 1, 0.75 );
     scene.add( light );
 
-	//May not be needed once modified cam controls exist
-    controls = new THREE.PointerLockControls( player );
-    
-    scene.add( controls.getObject() );
 
 	//************************ KEY COMMANDS ***********************************
 	//*************************************************************************
@@ -97,9 +90,7 @@ function init() {
     var onKeyDown = function ( event ) {
 
         switch ( event.keyCode ) {
-
-        //NOTE: do we want to have the arrow keys function as camera controls?
-        
+			
             case 38: // up
             case 87: // w
                 //if currently moving backwards, sets velocity to 0 so that you immediately switch directions
@@ -127,10 +118,7 @@ function init() {
                 // player.rotation.y -= .05;
                 break;
 
-            case 32: // space
-                if ( canJump === true ) velocity.y += 350;
-                canJump = false;
-                break;
+          
 
         }
     };
@@ -166,10 +154,7 @@ function init() {
     document.addEventListener( 'keydown', onKeyDown, false );
     document.addEventListener( 'keyup', onKeyUp, false );
 
-	
-    raycaster = new THREE.Raycaster( new THREE.Vector3(), new THREE.Vector3( 0, - 1, 0 ), 0, 10 );
-
-    
+	    
 	//Create the floor
     geometry = new THREE.PlaneGeometry( 2000, 2000, 100, 100 );
     geometry.rotateX( - Math.PI / 2 );
@@ -253,11 +238,6 @@ function setupCollisions(item) {
 		new THREE.Vector3(1, 0, -1),
 		new THREE.Vector3(0, 0, -1),
 		new THREE.Vector3(-1, 0, -1),
-		// new THREE.Vector3(0, 1, 0),
-		// new THREE.Vector3(-1, 1, 0),
-		// new THREE.Vector3(1, 1, 0),
-		// new THREE.Vector3(0, 1, 1),
-		// new THREE.Vector3(0, 1, -1),
 		new THREE.Vector3(0, -1, 0),
 		new THREE.Vector3(-1, -1, 0),
 		new THREE.Vector3(1, -1, 0),
@@ -273,189 +253,86 @@ function setupCollisions(item) {
 	item.caster = new THREE.Raycaster();
 	
 	item.collision = function () {
-		//TODO: setup so that distance grows relative to ball size
 		var collisions, i;
 		for (i = 0; i < this.rays.length; i++) {
 			this.caster.set(this.position, this.rays[i]);
 			collisions = this.caster.intersectObjects(objects);
 			
-			// console.log(this.rays[i]);
 			if (collisions.length > 0 && collisions[0].distance <= distance) {
-                //removed all conditions because all collisions will reverse z velocity
-                //sometimes gets stuck inside objects and ricochets against interior walls
 				
-				//TODO: temporarily removed, currently adds any object to ball
-                // player.velocity.z = -player.velocity.z;
-				//TODO: make offset relative to ray distance as ball grows
-
-                // collisions[0].object.updateMatrix();
-                // collisions[0].object.updateMatrixWorld();
-				player.children[0].updateMatrix();
-				// player.children[0].updateMatrixWorld();
+				//updates matrix of ball
+				exterior.updateMatrix();
 				
-				// collisions[0].object.matrixAutoUpdate = false;
-				
+				//removes the object from the list of objects in scene not on ball
 				removeFromObjects(collisions[0].object);
-                
-				// collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
-				// collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
-				// console.log(collisions[0].object.position.x);
-                // console.log(objects);
-                // var m = new THREE.Matrix4();
-                // m.getInverse(player.children[0].matrixWorld);
-                
-                // console.log(player.children[0].matrixWorld);
-                // console.log(collisions[0].object.matrix);
-                // console.log(m);
-				// console.log(collisions);
-				// console.log(collisions[0].object.position);
-				
+					
+				//Creates two vectors and calculates a single one
+				//The position vector of the collided object in world space
 				var obV = new THREE.Vector3();
 				obV.setFromMatrixPosition(collisions[0].object.matrixWorld);
+				//The position vector from the player in world space
 				var plV = new THREE.Vector3();
-				plV.setFromMatrixPosition(player.children[0].matrixWorld);
-				player.children[0].worldToLocal(plV);
-				player.children[0].worldToLocal(obV);
+				plV.setFromMatrixPosition(exterior.matrixWorld);
 				
-				// console.log(obV);
+				//Changes both to the ball's local coords
+				exterior.worldToLocal(plV);
+				exterior.worldToLocal(obV);
+
+				//subtracts the player vector from object, 
+				//giving a vector from the player to the object
 				obV.sub(plV);
-				// console.log(obV);
 				
-				// .worldToLocal
-				
-				// var tx, ty, tz;
-				// tx = player.children[0].rotation.x;
-				// ty = player.children[0].rotation.y;
-				// tz = player.children[0].rotation.z;
-				
-				// player.children[0].rotation.set(0, 0, 0);
-				// player.children[0].updateMatrix();
-				
+				//Attempts to set the rotation of the collided object to the ball
 				var obRot = new THREE.Matrix4();
-				obRot.makeRotationFromQuaternion(player.children[0].quaternion);
+				obRot.makeRotationFromQuaternion(exterior.quaternion);
 				collisions[0].object.quaternion.setFromRotationMatrix(obRot);
-                
-                // collisions[0].object.matrix.multiply(m);
-                // scene.remove(collisions[0].object);
-                player.children[0].add(collisions[0].object);
+
+				//Adds object to the ball
+                exterior.add(collisions[0].object);
+				//Sets object position to where the object was relative to ball
 				collisions[0].object.position.copy(obV);
+				//increment amount of objs added
 				objsAdded += 1;
 				
-				if (objsAdded > 400) {
-					player.children[0].remove(player.children[0].children[1]);
-					console.log(player.children[0].children.length);
+				//Limits max objects on ball to maxObjectsOnBall
+				if (objsAdded > maxObjectsOnBall) {
+					exterior.remove(exterior.children[1]);
 				}
+				//Asymptotic attempt of increase of collision detect distance
+				var log = (Math.log(objsAdded+1)*4);
+				distance += 1/log;
 				
-				// player.children[0].rotation.set(tx, ty, tz);
-				// console.log(collisions[0].object.position);
-				console.log(Math.log(objsAdded+1)*4);
-				distance += 1/(Math.log(objsAdded+1)*4);
+				//changes the cam zoom
 				curCamZoom += 0.12;
 				camera.position.z = curCamZoom;
+				
+				//Changes the cam height
 				camera.position.y += 0.08;
+				//Makes cam look downwards as it lifts up
 				camera.rotation.x -= 0.0001;
-				player.position.y += 0.01*(Math.log(objsAdded+1)*4);
+				//pushes back ball as objects added
+				player.position.z += 0.01*log;
+				
+				console.log(camera.position.y);
 			}
 		}
 	};
 	
-	// item.collisionChild = function () {
-		// //TODO: setup so that distance grows relative to ball size
-		// var collisions, i, j;
-		// for (i = 0; i < this.rays.length; i++) {
-			// for (j = 1; j < player.children[0].children.length; j++) {
-				// // var childWorldPos = player.children[0].children[j].localToWorld(player.children[0].children[j].position);
-				// // console.log(childWorldPos);
-				// this.caster.set(player.children[0].children[j].position, this.rays[i]);
-				// collisions = this.caster.intersectObjects(objects);
-				
-				// // console.log(this.rays[i]);
-				// if (collisions.length > 0 && collisions[0].distance <= distance) {
-					// //removed all conditions because all collisions will reverse z velocity
-					// //sometimes gets stuck inside objects and ricochets against interior walls
-					
-					// //TODO: temporarily removed, currently adds any object to ball
-					// // player.velocity.z = -player.velocity.z;
-					// //TODO: make offset relative to ray distance as ball grows
-
-					// // collisions[0].object.updateMatrix();
-					// // collisions[0].object.updateMatrixWorld();
-					// player.children[0].updateMatrix();
-					// // player.children[0].updateMatrixWorld();
-					
-					// // collisions[0].object.matrixAutoUpdate = false;
-					
-					// removeFromObjects(collisions[0].object);
-					
-					// // collisions[0].object.position.set(player.children[0].position.x, player.children[0].position.y, player.children[0].position.z);
-					// // collisions[0].object.setRotationFromQuaternion(player.children[0].quaternion);
-					// // console.log(collisions[0].object.position.x);
-					// // console.log(objects);
-					// // var m = new THREE.Matrix4();
-					// // m.getInverse(player.children[0].matrixWorld);
-					
-					// // console.log(player.children[0].matrixWorld);
-					// // console.log(collisions[0].object.matrix);
-					// // console.log(m);
-					// // console.log(collisions);
-					// // console.log(collisions[0].object.position);
-					
-					// var obV = new THREE.Vector3();
-					// obV.setFromMatrixPosition(collisions[0].object.matrixWorld);
-					// var plV = new THREE.Vector3();
-					// plV.setFromMatrixPosition(player.children[0].matrixWorld);
-					// player.children[0].worldToLocal(plV);
-					// player.children[0].worldToLocal(obV);
-					
-					// // console.log(obV);
-					// obV.sub(plV);
-					// // console.log(obV);
-					
-					// // .worldToLocal
-					
-					// // var tx, ty, tz;
-					// // tx = player.children[0].rotation.x;
-					// // ty = player.children[0].rotation.y;
-					// // tz = player.children[0].rotation.z;
-					
-					// // player.children[0].rotation.set(0, 0, 0);
-					// // player.children[0].updateMatrix();
-					
-					// var obRot = new THREE.Matrix4();
-					// obRot.makeRotationFromQuaternion(player.children[0].quaternion);
-					// collisions[0].object.quaternion.setFromRotationMatrix(obRot);
-					
-					// // collisions[0].object.matrix.multiply(m);
-					// // scene.remove(collisions[0].object);
-					// player.children[0].add(collisions[0].object);
-					// collisions[0].object.position.copy(obV);
-					// // player.children[0].rotation.set(tx, ty, tz);
-					// // console.log(collisions[0].object.position);
-					// // console.log(objects.length);
-					// // distance += 0.1/(player.children.length);
-					// curCamZoom += 0.11;
-					// camera.position.z = curCamZoom;
-					// camera.position.y += 0.03;
-					// camera.rotation.x -= 0.00001;
-				// }
-			// }
-		// }
-	// };
+	
 	
 };
 
+//Removes the desired object from the list of objects in scene not on ball
 function removeFromObjects(obj) {
-	// console.log(obj);
 	for (var i = 0; i < objects.length; i++) {
 		
-	// console.log(objects[i]);
 		if (objects[i] === obj) {
 			objects.splice(i, 1);
-			console.log("object removed");
 		}
 	}
 }
 
+//Window resize
 function onWindowResize() {
 
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -466,94 +343,69 @@ function onWindowResize() {
 }
 
 function animate() {
+	//Was having issues returning exterior as undefined, this is a bad fix.
+	exterior = player.children[0];
 
     requestAnimationFrame( animate );
-
-    if ( controlsEnabled ) {
-		// raycastReference.collisionChild();
-		raycastReference.collision();
+	
+	//Detect collisions
+	raycastReference.collision();
+	
+	//Basing velocity on time
+	var time = performance.now();
+	var delta = ( time - prevTime ) / 1000;
+	
+	//Player velocity decay
+	player.velocity.z -= player.velocity.z * delta;
+	player.velocity.x -= player.velocity.x * delta;
 		
-        raycaster.ray.origin.copy( controls.getObject().position );
-        raycaster.ray.origin.y -= 10;
-
-        var intersections = raycaster.intersectObjects( objects );
-
-        var isOnObject = intersections.length > 0;
-
-        var time = performance.now();
-        var delta = ( time - prevTime ) / 1000;
-		
-        player.velocity.z -= player.velocity.z * delta;
-        player.velocity.x -= player.velocity.x * delta;
-        // player.velocity.x -= player.velocity.x * delta;
-        
-        velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
-		
-        //this is what updates the velocity
-		if (moveForward) {
-				if(player.velocity.z > 0 && moveBackward){
-                    player.velocity.z = 0;
-                }
-                player.velocity.z -= 10;
+	//this is what updates the velocity
+	if (moveForward) {
+			if(player.velocity.z > 0 && moveBackward){
+				player.velocity.z = 0;
+			}
+			player.velocity.z -= 10;
+	}
+	if (moveBackward) {
+		if(player.velocity.z < 0 && moveForward){
+				player.velocity.z = 0;
+			}
+			player.velocity.z += 10;
+	}
+	if ( moveLeft ) {
+		if(player.velocity.x < 0 && moveRight){
+			player.velocity.x = 0;
 		}
-		if (moveBackward) {
-			if(player.velocity.z < 0 && moveForward){
-                    player.velocity.z = 0;
-                }
-                player.velocity.z += 10;
+		player.velocity.x += 3;
+		
+		player.rotation.y += .03;
+		//rotates the raycast reference object, and also the attached camera
+		raycastReference.rotation.y += .03;
+	}
+	if ( moveRight ) {
+		if(player.velocity.x > 0 && moveLeft){
+			player.velocity.x = 0;
 		}
+		player.velocity.x -= 3;
 		
-		// player.children[0].rotateX((player.velocity.z)/(Math.PI * 2 * 500));
-		// player.children[0].rotateOnAxis(localZaxis, (player.velocity.z)/(Math.PI * 2 * 500));
-		// player.children[0].rotateOnAxis(localXaxis, -(player.velocity.x)/(Math.PI * 2 * 500));
-        // player.children[0].rotateZ(-(player.velocity.x)/(Math.PI * 2 * 500));
-		rotateAroundWorldAxis(player.children[0], localXaxis, (player.velocity.z)/(Math.PI * 2 * 500));
-		rotateAroundWorldAxis(player.children[0], localZaxis, (player.velocity.x)/(Math.PI * 2 * 500));
-		
-        player.translateX(-player.velocity.x * delta);
-		player.translateZ(player.velocity.z * delta);
+		player.rotation.y -= .03;
+		//rotates the raycast reference object, and also the attached camera
+		raycastReference.rotation.y -= .03;
+	}
+	
+	//Rotates the ball around an arbitrary axis, as expected by movement
+	rotateAroundWorldAxis(exterior, localXaxis, (player.velocity.z)/(Math.PI * 2 * 500));
+	rotateAroundWorldAxis(exterior, localZaxis, (player.velocity.x)/(Math.PI * 2 * 500));
+	
+	//Moves the player
+	player.translateX(-player.velocity.x * delta);
+	player.translateZ(player.velocity.z * delta);
+	
+	//Updates the raycast reference so that it follows the position of the player
+	raycastReference.position.set(player.position.x, 0, player.position.z);
+	
+	prevTime = time;
 
-		if ( moveLeft ) {
-            if(player.velocity.x < 0 && moveRight){
-                player.velocity.x = 0;
-            }
-            player.velocity.x += 3;
-            
-            player.rotation.y += .03;
-			raycastReference.rotation.y += .03;
-		}
-		if ( moveRight ) {
-            if(player.velocity.x > 0 && moveLeft){
-                player.velocity.x = 0;
-            }
-            player.velocity.x -= 3;
-            
-            player.rotation.y -= .03;
-			raycastReference.rotation.y -= .03;
-		}
-
-        if ( isOnObject === true ) {
-            velocity.y = Math.max( 0, velocity.y );
-            canJump = true;
-        }
-
-        // controls.getObject().translateX( player.velocity.x * delta );
-        // controls.getObject().translateY( player.velocity.y * delta );
-        // controls.getObject().translateZ( player.velocity.z * delta );
-
-        if ( controls.getObject().position.y < 10 ) {
-
-            velocity.y = 0;
-            controls.getObject().position.y = 10;
-            canJump = true;
-
-        }
-		
-		raycastReference.position.set(player.position.x, player.position.y, player.position.z);
-		
-        prevTime = time;
-
-    }
     renderer.render( scene, camera );
 
 }
@@ -563,16 +415,9 @@ function rotateAroundObjectAxis(object, axis, radians) {
     rotObjectMatrix = new THREE.Matrix4();
     rotObjectMatrix.makeRotationAxis(axis.normalize(), radians);
 
-    // old code for Three.JS pre r54:
-    // object.matrix.multiplySelf(rotObjectMatrix);      // post-multiply
-    // new code for Three.JS r55+:
+
     object.matrix.multiply(rotObjectMatrix);
 
-    // old code for Three.js pre r49:
-    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
-    // old code for Three.js r50-r58:
-    // object.rotation.setEulerFromRotationMatrix(object.matrix);
-    // new code for Three.js r59+:
     object.rotation.setFromRotationMatrix(object.matrix);
 }
 
@@ -582,18 +427,11 @@ function rotateAroundWorldAxis(object, axis, radians) {
     rotWorldMatrix = new THREE.Matrix4();
     rotWorldMatrix.makeRotationAxis(axis.normalize(), radians);
 
-    // old code for Three.JS pre r54:
-    //  rotWorldMatrix.multiply(object.matrix);
-    // new code for Three.JS r55+:
+
     rotWorldMatrix.multiply(object.matrix);                // pre-multiply
 
     object.matrix = rotWorldMatrix;
 
-    // old code for Three.js pre r49:
-    // object.rotation.getRotationFromMatrix(object.matrix, object.scale);
-    // old code for Three.js pre r59:
-    // object.rotation.setEulerFromRotationMatrix(object.matrix);
-    // code for r59+:
     object.rotation.setFromRotationMatrix(object.matrix);
 }
 
